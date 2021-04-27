@@ -1,0 +1,28 @@
+{
+    "git.enableSmartCommit": true,
+    "workbench.colorTheme": "Atom One Light",
+    "window.zoomLevel": 1,
+    "editor.fontSize": 11,
+    "editor.minimap.enabled": false,
+    "breadcrumbs.enabled": true,
+    "workbench.editorAssociations": [
+        {
+            "viewType": "jupyter.notebook.ipynb",
+            "filenamePattern": "*.ipynb"
+        }
+    ],
+    "C_Cpp.default.browse.path": ["${workspaceFolder}/**",
+        "${workspaceRoot}",
+        "${HOME}/Arduino/libraries/*",
+        "${HOME}/.arduino15/**",
+        "${HOME}/.arduino15/packages/esp32/hardware/esp32/1.0.6/cores/esp32/**",
+        "${HOME}/.arduino15/packages/esp32/hardware/esp32/1.0.6/variants/esp32/**"
+                                ],
+    "C_Cpp.default.includePath": ["${workspaceFolder}/**",
+        "${workspaceRoot}",
+        "${HOME}/Arduino/libraries/*",
+        "${HOME}/.arduino15/**",
+        "${HOME}/.arduino15/packages/esp32/hardware/esp32/1.0.6/cores/esp32/**",
+        "${HOME}/.arduino15/packages/esp32/hardware/esp32/1.0.6/variants/esp32/**"
+                                ]
+}
