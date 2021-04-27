@@ -83,6 +83,17 @@ void Dali::setupTransmit(uint8_t pin)
 #endif
 }
 
+void Dali::LightCmd(uint8_t device_add, uint8_t cmd2){
+	uint8_t add_byte;
+	add_byte = 1 + (device_add << 1); // convert short address to address byte
+	transmit(add_byte, cmd2);
+}
+void Dali::LightLevel(uint8_t device_add, uint8_t cmd2){
+	uint8_t add_byte;
+	add_byte = (device_add << 1); //
+	transmit(add_byte, cmd2);
+}
+
 void Dali::transmit(uint8_t cmd1, uint8_t cmd2) // transmit commands to DALI bus (address byte, command byte)
 {
 	sendBit(1);
@@ -177,7 +188,7 @@ void Dali::busTest() //DALI bus test
 	delay(500);
 	dali.transmit(BROADCAST_C, ON_C); //Broadcast OFF
 	delay(100);
-	while (!Serial);
+	//while (!Serial);
 
 	//Receive response from luminaries: max and min level
 	dali.transmit(BROADCAST_C, QUERY_STATUS);
@@ -185,6 +196,8 @@ void Dali::busTest() //DALI bus test
 	dali.transmit(BROADCAST_C, QUERY_STATUS);
 	minLevel = dali.minResponseLevel();
 
+	dali.maxLevel = maxLevel;
+	dali.minLevel = minLevel;
 	dali.analogLevel = (int)(maxLevel + minLevel) / 2;
 }
 
@@ -267,7 +280,6 @@ void Dali::scanShortAdd()
 
 		if (dali.getResponse)
 		{
-
 			dali.transmit(add_byte, ON_C); // switch on
 			delay(1000);
 			dali.transmit(add_byte, OFF_C); // switch off
@@ -293,7 +305,8 @@ void Dali::scanShortAdd()
 			Serial.print(" ");
 			if (dali.getResponse)
 			{
-				Serial.print("Get response");
+				Serial.print("Get response ");
+				Serial.print(response, HEX);
 			}
 			else
 			{
@@ -530,12 +543,14 @@ uint8_t Dali::receive()
 		}
 	}
 
+	/*
 	Serial.print("I:");
 	Serial.print(i, DEC);
 	//Serial.println("");
 	//Serial.print("I:");
 	//Serial.print(startFuncTime, DEC);
 	Serial.println("");
+	*/
 
 	arrLength = i;
 
@@ -546,9 +561,9 @@ uint8_t Dali::receive()
 		{
 			for (k = arrLength; k > i; k--)
 			{ //asv
-				Serial.print(k, DEC);
-				Serial.print(" ");
-				Serial.println(arrLength, DEC);
+				//Serial.print(k, DEC);
+				//Serial.print(" ");
+				//Serial.println(arrLength, DEC);
 
 				timeArray[k] = timeArray[k - 1];
 				logicLevelArray[k] = logicLevelArray[k - 1];

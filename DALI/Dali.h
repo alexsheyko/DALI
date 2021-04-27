@@ -2,7 +2,6 @@
 
 #ifndef dali_h
 #define dali_h
-//#include <stdint.h>
 //#include <SoftwareSerial.h>
 
 //timer scaling factors for different transmission speeds
@@ -41,7 +40,11 @@ allowing us to transmit even with up to 100% in clock speed difference
 #define QUERY_STATUS  0b10010000	// 90	 Reply bits: 0=controlGearFailure; 1=lampFailure; 2=lampOn;
 									//					 3=limitError; 4=fadeRunning; 5=resetState; 
 									//					 6=shortAddress is MASK; 7=powerCycleSeen
+#define QUERY_ON   	  0x93			// 93
 #define QUERY_LEVEL   0b10100000	// A0
+#define QUERY_MAX_LEVEL   0xA1		// 
+#define QUERY_MIN_LEVEL   0xA2		// 
+#define QUERY_POW_LEVEL   0xA3		// 
 #define RESET         0b00100000	// 20
 
 #define STEP_UP		  0b00000011	// 03
@@ -72,6 +75,8 @@ public:
 	void workAround1MhzTinyCore(uint8_t a = 1); //apply workaround for defect in tiny Core library for 1Mhz
 	void setupTransmit(uint8_t pin);			//set up transmission
 	void setupAnalogReceive(uint8_t pin);
+	void LightCmd(uint8_t cmd1, uint8_t cmd2);	   //transmit 16 bits of data
+	void LightLevel(uint8_t cmd1, uint8_t cmd2);	   //transmit 16 bits of data
 	void transmit(uint8_t cmd1, uint8_t cmd2);	   //transmit 16 bits of data
 	void transmit_old(uint8_t cmd1, uint8_t cmd2); //transmit 16 bits of data
 	void scanShortAdd();						   //scan for short address
@@ -94,6 +99,9 @@ public:
 
 	long daliTimeout = 20000; //us, DALI response timeout
 	int analogLevel = 870;	  //analog border level (less - "0"; more - "1")
+	int maxLevel = 0;
+	int minLevel = 0;
+	
 
 private:
 	void sendByte(uint8_t b);															 //transmit 8 bits of data
