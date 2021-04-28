@@ -3,21 +3,24 @@
 
 //#include <SoftwareSerial.h>
 
-#define INITIALISE 0xA5
-#define RANDOMISE 0xA7
-#define SEARCHADDRH 0xB1
-#define SEARCHADDRM 0xB3
-#define SEARCHADDRL 0xB5
-#define PRG_SHORT_ADDR 0xB7
-#define COMPARE 0xA9
-#define WITHDRAW 0xAB
-#define TERMINATE 0xA1
+#define TERMINATE 		0xA1	//0b10100001
+#define INITIALISE 		0xA5
+#define RANDOMISE		0xA7
+
+#define COMPARE 		0xA9	//0b10101001
+#define WITHDRAW 		0xAB
+
+#define SEARCH_ADDRH 	0xB1
+#define SEARCH_ADDRM 	0xB3
+#define SEARCH_ADDRL 	0xB5
+
+#define PRG_SHORT_ADDR 	0xB7
+
+
 
 //#define DALI_ANALOG_LEVEL   650
 
-#define DALI_HALF_BIT_TIME 416		 //microseconds
-#define DALI_TWO_PACKET_DELAY 10	 //miliseconds
-#define DALI_RESPONSE_DELAY_COUNT 15 //максимальное число полубитов
+
 
 
 Dali::Dali() //constructor
@@ -83,16 +86,20 @@ void Dali::setupTransmit(uint8_t pin)
 #endif
 }
 
+
 void Dali::LightCmd(uint8_t device_add, uint8_t cmd2){
 	uint8_t add_byte;
 	add_byte = 1 + (device_add << 1); // convert short address to address byte
 	transmit(add_byte, cmd2);
 }
+
+
 void Dali::LightLevel(uint8_t device_add, uint8_t cmd2){
 	uint8_t add_byte;
 	add_byte = (device_add << 1); //
 	transmit(add_byte, cmd2);
 }
+
 
 void Dali::transmit(uint8_t cmd1, uint8_t cmd2) // transmit commands to DALI bus (address byte, command byte)
 {
@@ -102,69 +109,24 @@ void Dali::transmit(uint8_t cmd1, uint8_t cmd2) // transmit commands to DALI bus
 	digitalWrite(TxPin, HIGH);
 }
 
-void Dali::transmit_old(uint8_t Part1, uint8_t Part2) // transmit commands to DALI bus (address byte, command byte)
-{
-	//this new
-	uint8_t DALI_CMD[] = {Part1, Part2};
-
-	//Старт бит
-	digitalWrite(TxPin, LOW);
-	delayMicroseconds(DALI_HALF_BIT_TIME);
-	digitalWrite(TxPin, HIGH);
-	delayMicroseconds(DALI_HALF_BIT_TIME);
-	//команда
-	for (uint8_t CmdPart = 0; CmdPart < 2; CmdPart++)
-	{
-		for (int i = 7; i >= 0; i--)
-		{
-			bool BitToSend = false;
-
-			if ((DALI_CMD[CmdPart] >> i) & 1)
-				BitToSend = true;
-
-			if (BitToSend)
-				digitalWrite(TxPin, LOW);
-			else
-				digitalWrite(TxPin, HIGH);
-
-			delayMicroseconds(DALI_HALF_BIT_TIME);
-
-			if (BitToSend)
-				digitalWrite(TxPin, HIGH);
-			else
-				digitalWrite(TxPin, LOW);
-
-			delayMicroseconds(DALI_HALF_BIT_TIME);
-		}
-	}
-
-	digitalWrite(TxPin, HIGH);
-}
 
 void Dali::sendByte(uint8_t b)
 {
-	for (int i = 7; i >= 0; i--)
-	{
+	for (int i = 7; i >= 0; i--){
 		sendBit((b >> i) & 1);
 	}
 }
 
 void Dali::sendBit(int b)
 {
-	if (b)
-	{
-		sendOne();
-	}
-	else
-	{
-		sendZero();
-	}
+	if (b)	{sendOne();	}
+	else	{sendZero();}
 }
 
 void Dali::sendZero(void)
 {
 	digitalWrite(TxPin, HIGH);
-	delayMicroseconds(delay2);
+	delayMicroseconds(delay2);		// maybe DALI_HALF_BIT_TIME
 	digitalWrite(TxPin, LOW);
 	delayMicroseconds(delay1);
 }
@@ -173,7 +135,7 @@ void Dali::sendOne(void)
 {
 	digitalWrite(TxPin, LOW);
 	delayMicroseconds(delay2);
-	digitalWrite(TxPin, HIGH);
+	digitalWrite(TxPin, HIGH);		// maybe DALI_HALF_BIT_TIME
 	delayMicroseconds(delay1);
 }
 
@@ -211,7 +173,6 @@ void Dali::splitAdd(long input, uint8_t &highbyte, uint8_t &middlebyte, uint8_t 
 // define min response level
 int Dali::minResponseLevel()
 {
-
 	const uint8_t dalistep = 40; //us
 	uint16_t rxmin = 1024;
 	uint16_t dalidata;
@@ -232,7 +193,6 @@ int Dali::minResponseLevel()
 // define max response level
 int Dali::maxResponseLevel()
 {
-
 	const uint8_t dalistep = 40; //us
 	uint16_t rxmax = 0;
 	uint16_t dalidata;
@@ -253,10 +213,8 @@ int Dali::maxResponseLevel()
 //scan for individual short address
 void Dali::scanShortAdd()
 {
-
 	const int delayTime = 10;
 	const uint8_t start_ind_adress = 0;
-	const uint8_t finish_ind_adress = 127;
 	uint8_t add_byte;
 	uint8_t device_short_add;
 	uint8_t response;
@@ -272,12 +230,9 @@ void Dali::scanShortAdd()
 	for (device_short_add = start_ind_adress; device_short_add <= 63; device_short_add++)
 	{
 
-		add_byte = 1 + (device_short_add << 1); // convert short address to address byte
-
-		dali.transmit(add_byte, 0xA1);
+		dali.LightCmd(device_short_add, QUERY_MAX_LEVEL);
 
 		response = dali.receive();
-
 		if (dali.getResponse)
 		{
 			dali.transmit(add_byte, ON_C); // switch on
@@ -292,16 +247,16 @@ void Dali::scanShortAdd()
 
 		if (dali.msgMode)
 		{
-			Serial.print("BIN: ");
-			Serial.print(device_short_add, BIN);
+			//Serial.print("BIN: ");
+			//Serial.print(device_short_add, BIN);
 			Serial.print(" ");
 			Serial.print("DEC: ");
 			Serial.print(device_short_add, DEC);
 			Serial.print(" ");
 			Serial.print("HEX: ");
 			Serial.print(device_short_add, HEX);
-			Serial.print(" A: ");
-			Serial.print(add_byte, DEC);
+			//Serial.print(" A: ");
+			//Serial.print(add_byte, DEC);
 			Serial.print(" ");
 			if (dali.getResponse)
 			{
@@ -387,7 +342,7 @@ bool Dali::cmdCheck(String &input, int &cmd1, int &cmd2)
 
 void Dali::initialisation()
 {
-
+	bool Response = false;
 	const int delaytime = 10; //ms
 
 	long low_longadd = 0x000000;
@@ -400,20 +355,30 @@ void Dali::initialisation()
 	uint8_t cmd2;
 
 	delay(delaytime);
-	dali.transmit(BROADCAST_C, RESET);
-	delay(delaytime);
-	dali.transmit(BROADCAST_C, RESET);
-	delay(delaytime);
+	//dali.transmit(BROADCAST_C, RESET);
+	dali.transmit(RESET, 0x00);
+	delay(2*delaytime);
+	//dali.transmit(BROADCAST_C, RESET);
+	dali.transmit(RESET, 0x00);
+	delay(2*delaytime);
+	delay(100);
+	
 	dali.transmit(BROADCAST_C, OFF_C);
 	delay(delaytime);
+
 	dali.transmit(INITIALISE, 0x00); 	//initialise
 	delay(delaytime);
-	dali.transmit(INITIALISE, 0x00); 	//initialise
-	delay(DALI_TWO_PACKET_DELAY);
+	dali.transmit(INITIALISE, 0x00); 	//
+	delay(delaytime);
+	dali.transmit(INITIALISE, 0x00); 	//
+	delay(delaytime);
 	delay(100);
+
 	dali.transmit(RANDOMISE, 0x00); 	//randomise
-	delay(DALI_TWO_PACKET_DELAY);
-	dali.transmit(RANDOMISE, 0x00); 	//randomise
+	delay(delaytime);
+	dali.transmit(RANDOMISE, 0x00); 	//
+	delay(delaytime);
+	delay(100);
 
 	if (dali.msgMode)
 	{
@@ -427,15 +392,27 @@ void Dali::initialisation()
 
 			dali.splitAdd(longadd, highbyte, middlebyte, lowbyte); //divide 24bit adress into three 8bit adresses
 			delay(delaytime);
-			dali.transmit(0b10110001, highbyte); //search HB
+			dali.transmit(SEARCH_ADDRH, highbyte); 		//search HB
 			delay(delaytime);
-			dali.transmit(0b10110011, middlebyte); //search MB
+			dali.transmit(SEARCH_ADDRM, middlebyte); 	//search MB
 			delay(delaytime);
-			dali.transmit(0b10110101, lowbyte); //search LB
+			dali.transmit(SEARCH_ADDRL, lowbyte); 		//search LB
 			delay(delaytime);
-			dali.transmit(0b10101001, 0b00000000); //compare
+			dali.transmit(COMPARE, 0x00); 	//compare
 
-			if (minResponseLevel() > dali.analogLevel)
+			Response = false;
+			delayMicroseconds(7 * DALI_HALF_BIT_TIME);
+			for(uint8_t i = 0; i < DALI_RESPONSE_DELAY_COUNT; i++)
+			{
+				if (analogRead(RxAnalogPin) < dali.analogLevel)
+				{
+				Response = true;
+				break;
+				}
+				delayMicroseconds(DALI_HALF_BIT_TIME);
+			}
+
+			if (!Response)//(minResponseLevel() > dali.analogLevel)
 			{
 				low_longadd = longadd;
 			}
@@ -448,9 +425,9 @@ void Dali::initialisation()
 
 			if (dali.msgMode)
 			{
-				Serial.print("BIN: ");
-				Serial.print(longadd + 1, BIN);
-				Serial.print(" ");
+				//Serial.print("BIN: ");
+				//Serial.print(longadd + 1, BIN);
+				//Serial.print(" ");
 				Serial.print("DEC: ");
 				Serial.print(longadd + 1, DEC);
 				Serial.print(" ");
@@ -467,20 +444,23 @@ void Dali::initialisation()
 		if (high_longadd != 0xFFFFFF)
 		{
 			splitAdd(longadd + 1, highbyte, middlebyte, lowbyte);
-			dali.transmit(0b10110001, highbyte); //search HB
+
+			dali.transmit(SEARCH_ADDRH, highbyte); 		//search HB
 			delay(delaytime);
-			dali.transmit(0b10110011, middlebyte); //search MB
+			dali.transmit(SEARCH_ADDRM, middlebyte); 	//search MB
 			delay(delaytime);
-			dali.transmit(0b10110101, lowbyte); //search LB
+			dali.transmit(SEARCH_ADDRL, lowbyte); 		//search LB
 			delay(delaytime);
-			dali.transmit(0b10110111, 1 + (short_add << 1)); //program short adress
+			dali.transmit(PRG_SHORT_ADDR, 1 + (short_add << 1)); //program short adress
 			delay(delaytime);
-			dali.transmit(0b10101011, 0b00000000); //withdraw
+			dali.transmit(WITHDRAW, 0x00); 		//withdraw
 			delay(delaytime);
+			
 			dali.transmit(1 + (short_add << 1), ON_C);
 			delay(1000);
 			dali.transmit(1 + (short_add << 1), OFF_C);
 			delay(delaytime);
+
 			short_add++;
 
 			if (dali.msgMode)
@@ -500,8 +480,8 @@ void Dali::initialisation()
 		}
 	} // first while
 
-	dali.transmit(0b10100001, 0b00000000); //terminate
-	dali.transmit(BROADCAST_C, ON_C);	   //broadcast on
+	dali.transmit(TERMINATE, 0x00); 		//terminate
+	//dali.transmit(BROADCAST_C, ON_C);	    //broadcast on
 }
 
 uint8_t Dali::receive()

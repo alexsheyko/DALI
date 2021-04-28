@@ -56,6 +56,12 @@ allowing us to transmit even with up to 100% in clock speed difference
 //setup timing for transmitter
 #define HALF_BIT_INTERVAL 1666
 
+// chipdip
+#define DALI_HALF_BIT_TIME 416		 //microseconds
+#define DALI_TWO_PACKET_DELAY 10	 //miliseconds
+#define DALI_RESPONSE_DELAY_COUNT 15 //максимальное число полубитов
+
+
 #if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
 #else
@@ -75,10 +81,10 @@ public:
 	void workAround1MhzTinyCore(uint8_t a = 1); //apply workaround for defect in tiny Core library for 1Mhz
 	void setupTransmit(uint8_t pin);			//set up transmission
 	void setupAnalogReceive(uint8_t pin);
-	void LightCmd(uint8_t cmd1, uint8_t cmd2);	   //transmit 16 bits of data
-	void LightLevel(uint8_t cmd1, uint8_t cmd2);	   //transmit 16 bits of data
+	void LightCmd(uint8_t device_add, uint8_t cmd2);	   		//
+	void LightLevel(uint8_t device_add, uint8_t cmd2);	    	//
 	void transmit(uint8_t cmd1, uint8_t cmd2);	   //transmit 16 bits of data
-	void transmit_old(uint8_t cmd1, uint8_t cmd2); //transmit 16 bits of data
+	//void transmit_old(uint8_t cmd1, uint8_t cmd2); //
 	void scanShortAdd();						   //scan for short address
 	void busTest();								   // bus test
 	void initialisation();						   //initialization of new luminaries
@@ -128,3 +134,144 @@ extern "C"
 extern Dali dali;
 
 #endif
+
+/*
+void DaliInit()
+{
+  Serial.println("Initialization...");
+
+  DaliTransmitCMD(RESET, 0x00);
+  delay(2*DALI_TWO_PACKET_DELAY);
+  DaliTransmitCMD(RESET, 0x00);
+  delay(2*DALI_TWO_PACKET_DELAY);
+  delay(100);
+    
+  DaliTransmitCMD(INITIALISE, 0x00); 
+  delay(DALI_TWO_PACKET_DELAY);
+  DaliTransmitCMD(INITIALISE, 0x00);
+  delay(DALI_TWO_PACKET_DELAY);
+  DaliTransmitCMD(INITIALISE, 0x00);
+  delay(DALI_TWO_PACKET_DELAY);
+  delay(100);
+  
+  DaliTransmitCMD(RANDOMISE, 0x00);
+  delay(DALI_TWO_PACKET_DELAY);
+  DaliTransmitCMD(RANDOMISE, 0x00);
+  delay(DALI_TWO_PACKET_DELAY);
+  delay(100);
+
+  while(ShortAddr < 64)
+  {
+    long SearchAddr = 0xFFFFFF;
+    bool Response = 0;
+    long LowLimit = 0;
+    long HighLimit = 0x1000000;
+
+    Response = SearchAndCompare(SearchAddr);
+    delay(DALI_TWO_PACKET_DELAY);
+  
+    if(Response)
+    {
+      digitalWrite(LED_PIN, LOW);
+      Serial.println("Device detected, address searching...");
+      
+      if(!SearchAndCompare(SearchAddr - 1))
+      {
+        delay(DALI_TWO_PACKET_DELAY);
+        SearchAndCompare(SearchAddr);
+        delay(DALI_TWO_PACKET_DELAY);
+        DaliTransmitCMD(PRG_SHORT_ADDR, ((ShortAddr << 1) | 1));
+        delay(3*DALI_TWO_PACKET_DELAY);
+        DaliTransmitCMD(WITHDRAW, 0x00);
+        Serial.print("24-bit address found: 0x");
+        Serial.println(SearchAddr, HEX);
+        Serial.print("Assigning short address ");
+        Serial.println(ShortAddr);
+        break;
+      }
+    }
+    else
+    {
+      Serial.println("No devices detected");
+      break;
+    }
+
+    while(1)
+    {
+      SearchAddr = (long)((LowLimit + HighLimit) / 2);
+
+      Response = SearchAndCompare(SearchAddr);
+      delay(DALI_TWO_PACKET_DELAY);
+
+      if (Response)
+      {
+        digitalWrite(LED_PIN, LOW);
+
+        if ((SearchAddr == 0) || (!SearchAndCompare(SearchAddr - 1)))
+          break;
+        
+        HighLimit = SearchAddr;
+      }
+      else
+        LowLimit = SearchAddr;
+    }
+
+    delay(DALI_TWO_PACKET_DELAY);
+    SearchAndCompare(SearchAddr);
+    delay(DALI_TWO_PACKET_DELAY);
+    DaliTransmitCMD(PRG_SHORT_ADDR, ((ShortAddr << 1) | 1));
+    delay(5*DALI_TWO_PACKET_DELAY);
+    DaliTransmitCMD(WITHDRAW, 0x00);
+    delay(DALI_TWO_PACKET_DELAY);
+    
+    Serial.print("24-bit address found: 0x");
+    Serial.println(SearchAddr, HEX);
+    Serial.print("Assigning short address ");
+    Serial.println(ShortAddr);
+
+    ShortAddr++;
+
+   // break; //только для одного модуля
+  }
+
+  delay(DALI_TWO_PACKET_DELAY);
+  DaliTransmitCMD(TERMINATE, 0x00);
+  delay(DALI_TWO_PACKET_DELAY);
+  Serial.println("Init complete");
+}
+//-------------------------------------------------
+bool SearchAndCompare(long SearchAddr)
+{
+  bool Response = 0;
+  
+  uint8_t HighByte = SearchAddr >> 16;
+  uint8_t MiddleByte = SearchAddr >> 8;
+  uint8_t LowByte = SearchAddr;
+
+  for(uint8_t i = 0; i < 3; i++)
+  {
+    DaliTransmitCMD(SEARCHADDRH, HighByte);
+    delay(DALI_TWO_PACKET_DELAY);
+    DaliTransmitCMD(SEARCHADDRM, MiddleByte);
+    delay(DALI_TWO_PACKET_DELAY);
+    DaliTransmitCMD(SEARCHADDRL, LowByte);
+    delay(DALI_TWO_PACKET_DELAY);
+  }
+  DaliTransmitCMD(COMPARE, 0x00);
+  delayMicroseconds(7 * DALI_HALF_BIT_TIME);
+  
+  for(uint8_t i = 0; i < DALI_RESPONSE_DELAY_COUNT; i++)
+  {
+    if (analogRead(DALI_RX_PIN) < DALI_ANALOG_LEVEL)
+    {
+      Response = 1;
+      digitalWrite(LED_PIN, HIGH);
+      break;
+    }
+    
+    delayMicroseconds(DALI_HALF_BIT_TIME);
+  }
+
+  return Response;
+}
+*/

@@ -17,8 +17,9 @@
 const int DALI_TX = 33;    // ADC1      (no use 0,2,15,...)
 const int DALI_RX_A = 32;  // ESP only ADC pin
 
-//unsigned long lastTemp = 0;
-//boolean temp1 = false;
+unsigned int last_dev = 99;
+unsigned long last_scan = 0;
+boolean scan_busy = false;
 
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
@@ -74,40 +75,50 @@ String lightPrefix(const char *top, uint8_t add_byte)
   //String ret = String(MQTT_TOPIC_PREFIX) + top;
   return m_topic_buffer;
 }
+void publishBuffer(const char *top, uint8_t device_add)
+{
+  pubSubClient.publish(lightPrefix(top, device_add).c_str(), m_msg_buffer, true);
+}
 
-void mqtt_pub_one(PubSubClient pubSubClient, uint8_t device_add){
+
+void mqtt_pub_one(uint8_t device_add){
   const int delayTime = 10;
   uint8_t level;
   uint8_t status;
 	uint8_t q_on;
-  //add_byte = 1 + (device_add << 1); // convert short address to address byte
-    //Serial.println("Lamp level:");
-    dali.LightCmd(device_add, QUERY_LEVEL);
-    level = dali.receive();
-    delay(delayTime);
-    dali.LightCmd(device_add, QUERY_STATUS);
-    status = dali.receive();
-    delay(delayTime);
-    dali.LightCmd(device_add, QUERY_ON);
-    q_on = dali.receive();
-    delay(delayTime);
-    //Serial.println("Lamp 1 level:");
-    //Serial.println(status, BIN);
 
-    snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", level);
-    pubSubClient.publish(lightPrefix(ML_BRIGHTNESS, device_add).c_str(), m_msg_buffer, true);
-    snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", status);
-    pubSubClient.publish(lightPrefix(ML_STATUS_RAW, device_add).c_str(), m_msg_buffer, true);
+  //Serial.println("Lamp level:");
+  dali.LightCmd(device_add, QUERY_LEVEL);
+  level = dali.receive();
+  delay(delayTime);
+  dali.LightCmd(device_add, QUERY_STATUS);
+  status = dali.receive();
+  delay(delayTime);
+  dali.LightCmd(device_add, QUERY_ON);
+  q_on = dali.receive();
+  delay(delayTime);
+  //Serial.println("Lamp 1 level:");
+  //Serial.println(status, BIN);
 
-    if (q_on > 1){
-      snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%s", LIGHT_ON);
-    }else{
-      snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%s", LIGHT_OFF);
-    }
-    pubSubClient.publish(lightPrefix(ML_STATE, device_add).c_str(), m_msg_buffer, true);
+  snprintf(m_msg_buffer, MSG_SIZE, "%d", level);
+  publishBuffer(ML_BRIGHTNESS, device_add);
 
-    pubSubClient.subscribe(lightPrefix(ML_BRIGHTNESS_SET, device_add).c_str());
-    pubSubClient.subscribe(lightPrefix(ML_STATE_SET, device_add).c_str());
+  snprintf(m_msg_buffer, MSG_SIZE, "%d", status);
+  publishBuffer(ML_STATUS_RAW, device_add);
+
+  snprintf(m_msg_buffer, MSG_SIZE, "%d", millis());
+  publishBuffer(ML_UPDATE_RAW, device_add);
+
+
+  if (q_on > 1){
+    snprintf(m_msg_buffer, MSG_SIZE, "%s", LIGHT_ON);
+  }else{
+    snprintf(m_msg_buffer, MSG_SIZE, "%s", LIGHT_OFF);
+  }
+  publishBuffer(ML_STATE, device_add);
+
+  pubSubClient.subscribe(lightPrefix(ML_BRIGHTNESS_SET, device_add).c_str());
+  pubSubClient.subscribe(lightPrefix(ML_STATE_SET, device_add).c_str());
 
 }
 
@@ -115,12 +126,11 @@ void mqtt_pub_one(PubSubClient pubSubClient, uint8_t device_add){
 void pubAll(){
   
 	const uint8_t start_ind_adress = 0;
-	const uint8_t finish_ind_adress = 127;
 	uint8_t device_add;
 
 	for (device_add = start_ind_adress; device_add <= 63; device_add++)
 	{
-		mqtt_pub_one(pubSubClient, device_add);
+		mqtt_pub_one(device_add);
   }
   Serial.println("End pub level:");
 }
@@ -186,6 +196,7 @@ void setup()
   Serial.println(dali.maxLevel, DEC);
   Serial.println(dali.analogLevel, DEC);
   if (dali.analogLevel == 0){
+    delay(1000);
     Serial.println("Re bustest..");
     dali.busTest();
     Serial.println(dali.analogLevel, DEC);
@@ -202,30 +213,16 @@ void setup()
   //delay(200);
   //dali.initialisation();
 
-  /*
-  delay(200);
-  dali.transmit(BROADCAST_C, OFF_C);
-  delay(200);
-  level1(); 
-  delay(2000);
-  */
-  dali.transmit(BROADCAST_C, ON_C);
-  delay(4000);
+
+  //dali.transmit(BROADCAST_C, ON_C);
+  //delay(4000);
   //sinus();
 
-  //level1();
-  //delay(1000);
-
-  //dali.transmit(2 << 1, 0x90);
-  //delay(2000);
-
   //testReceive();
-  //dali.transmit(BROADCAST_C, QUERY_LEVEL);
-  //Serial.println(dali.receive());
-  //delay(10);
-  level1();
 
-  //dali.scanShortAdd();
+  //delay(10);
+  //level1();
+
 }
 
 void help()
@@ -376,9 +373,26 @@ void loop()
   //}
   //delay(delaytime);
 
-  // temp 60s
-  //if (millis() - lastTemp > 6000 && !temp1) {
-  //if (millis() - lastTemp > 6000) {
+  // scan 2s
+  if (millis() - last_scan > 2000 && !scan_busy) {
+    scan_busy = true;
+    last_scan = millis(); 
+    
+    uint16_t pub_dev = 0;
+    if (mql.need_update > 0){
+      //Serial.println("need_update");
+      pub_dev = mql.need_update;
+      mql.need_update = -1;
+    }else{
+      last_dev += 1;
+      if (last_dev > 63)
+        last_dev = 0;
+      pub_dev = last_dev;
+    }
+
+    mqtt_pub_one(pub_dev);
+    scan_busy = false;
+  }
   //temp1 = true;
 
   //  lastTemp = millis();

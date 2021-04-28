@@ -6,6 +6,8 @@
 const PROGMEM char* ML_STATE = "/state";
 const PROGMEM char* ML_STATE_SET = "/state/set";
 const PROGMEM char* ML_STATUS_RAW = "/status_raw";
+const PROGMEM char* ML_UPDATE_RAW = "/last_updated_raw";
+
 const PROGMEM char* MQTT_LIGHT_COMMAND = "/switch";
 
 const PROGMEM char* ML_BRIGHTNESS = "/brightness";  //status
@@ -15,12 +17,31 @@ const PROGMEM char* ML_BRIGHTNESS_SET = "/brightness/set";
 const char* LIGHT_ON = "ON";
 const char* LIGHT_OFF = "OFF";
 
-const uint8_t MSG_BUFFER_SIZE = 20;
-char m_msg_buffer[MSG_BUFFER_SIZE]; 
+const uint8_t MSG_SIZE = 20;
+char m_msg_buffer[MSG_SIZE]; 
 const uint8_t MSG_TOPIC_SIZE = 150;
 char m_topic_buffer[MSG_TOPIC_SIZE]; 
 
 void sinus1();
+
+class Mqtt_light
+{
+public:
+	Mqtt_light();	
+  int need_update=-1;
+  int max_device = 64;
+  int dev_answer[64];
+	uint16_t delay2;
+	uint16_t period;
+}; //end of class
+
+Mqtt_light::Mqtt_light() //constructor
+{
+  need_update = -1;
+	//applyWorkAround1Mhz = 0;
+}
+
+Mqtt_light mql = Mqtt_light();
 
 
 void mqtt_callback(char *top, byte *pay, unsigned int length)
@@ -37,7 +58,7 @@ void mqtt_callback(char *top, byte *pay, unsigned int length)
   i2 = topic.indexOf('/', i1 + 1);
   String address = topic.substring(i1 + 1, i2);
   String command = topic.substring(i2 + 1);
-  Serial.printf("Addr: %s Cmd: %s\r\n", address.c_str(), command.c_str());
+  //Serial.printf("Addr: %s Cmd: %s\r\n", address.c_str(), command.c_str());
   payload.toLowerCase();
 
   int num = -1;
@@ -54,6 +75,12 @@ void mqtt_callback(char *top, byte *pay, unsigned int length)
       }
       delay(1000);
   }
+  if (address == "init") {
+      if (payload == "on") {
+        dali.initialisation();
+      }
+      delay(1000);
+  }
   if (address == "sinus") {
       if (payload == "on") {
         sinus1();
@@ -62,6 +89,7 @@ void mqtt_callback(char *top, byte *pay, unsigned int length)
   }
 
   if (num >= 0){
+    
     if (command == "state/set") {
       if (payload == "off") {
         dali.LightCmd(num, OFF_C);
@@ -70,54 +98,22 @@ void mqtt_callback(char *top, byte *pay, unsigned int length)
       }
       delay(10);
     }
+
     if (command == "brightness/set") {
       pi = payload.toInt();
       if (pi > 254)
         pi = 254;
+      if (pi < 0)
+        pi = 0;
       
       dali.LightLevel(num, pi);
-      Serial.printf("brightness: %d for %d \r\n", pi, num);
+      //Serial.printf("brightness: %d for %d \r\n", pi, num);
       delay(10);
     }
-  }
-  /*
-  auto cls = getClients();
-  if (address == "restart") {
-    for (auto const& c : cls)
-      c.second->onDisconnect(c.second->client);
-    delay(200);
-    ESP.restart();
-  }
 
-  if (address == "enable") {
-    if (payload == "off") {
-      Serial.println("Disabling BLE Clients");
-      bleEnabled = false;
-      pubSubClient.publish(topPrefix("/enabled").c_str(), "OFF", true);
-      for (auto const& c : cls) {
-        c.second->client->disconnectFromServer();
-      }
-    } else if (payload == "on") {
-      Serial.println("Enabling BLE Clients");
-      bleEnabled = true;
-      pubSubClient.publish(topPrefix("/enabled").c_str(), "ON", true);
-      lastScan = 0;
-    }
+    mql.need_update = num;
   }
-
-  for (auto const& c : cls) {
-    auto cl = c.second->client;
-    if (c.second->mqttName == address || address == "all") {
-      if (command == "set") {
-        if (payload == "open") cl->open();
-        if (payload == "close") cl->close();
-        if (payload == "stop") cl->stop();
-      }
-      if (command == "set_position")
-        cl->setPosition(payload.toInt());
-    }
-  }
-  */
+  
 }
 
 
