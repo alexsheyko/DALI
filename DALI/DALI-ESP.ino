@@ -221,7 +221,7 @@ void setup()
   //testReceive();
 
   //delay(10);
-  //level1();
+  level1();
 
 }
 
@@ -379,7 +379,7 @@ void loop()
     last_scan = millis(); 
     
     uint16_t pub_dev = 0;
-    if (mql.need_update > 0){
+    if (mql.need_update >= 0){
       //Serial.println("need_update");
       pub_dev = mql.need_update;
       mql.need_update = -1;

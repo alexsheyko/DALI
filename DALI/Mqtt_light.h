@@ -28,7 +28,7 @@ class Mqtt_light
 {
 public:
 	Mqtt_light();	
-  int need_update=-1;
+  int need_update = -1;
   int max_device = 64;
   int dev_answer[64];
 	uint16_t delay2;

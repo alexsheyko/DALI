@@ -3,3 +3,4 @@
 # Ignore paths that contain user-generated content.
 #.gitignore
 .vscode
+.esphome

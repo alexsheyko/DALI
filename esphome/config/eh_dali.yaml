@@ -1,0 +1,35 @@
+esphome:
+  name: eh_dali
+  platform: ESP32
+  board: esp-wrover-kit
+  includes:
+    - eh_light_dali.h
+
+wifi:
+  ssid: "MikroSun"
+  password: "21212121"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Eh Dali Fallback Hotspot"
+    password: "96fD7S7j8rdn"
+
+light:
+- platform: custom
+  lambda: |-
+    auto light_out = new DaliLightOutput();
+    App.register_component(light_out);
+    return {light_out};
+
+  lights:
+    - name: "My Dali Light"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
